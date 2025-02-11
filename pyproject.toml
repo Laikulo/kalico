@@ -1,6 +1,5 @@
 [project]
 name = "Kalico"
-version = "0.12.1"
 requires-python = ">=3.9"
 dependencies = [
   "cffi==1.17.1 ; python_version >= '3.13'",
@@ -15,7 +14,9 @@ dependencies = [
   "pyserial==3.4",
   "python-can==3.3.4",
   "setuptools==75.8.2 ; python_version >= '3.12'", # required by python-can < 4.3
+  "pytest>=8.3.4",
 ]
+dynamic = ["version"]
 
 [tool.uv]
 dev-dependencies = [
@@ -31,6 +32,23 @@ source = "https://github.com/KalicoCrew/kalico"
 documentation = "https://docs.kalico.gg/"
 issues = "https://github.com/KalicoCrew/kalico/issues"
 funding = "https://docs.kalico.gg/Sponsors.html"
+
+[project.scripts]
+kalico = "klippy.printer:main"
+
+[build-system]
+requires = ["setuptools>=63.0", "cffi", "wheel", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = [
+  "klippy",
+  "klippy.*"
+]
+
+[tool.setuptools_scm]
+version_file = "klippy/.version"
+version_file_template = "{version}"
 
 [tool.ruff]
 line-length = 80

@@ -3,6 +3,7 @@
 # Copyright (C) 2016-2021  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
+import importlib.util
 import os, logging
 import cffi
 
@@ -314,25 +315,47 @@ def logging_callback(msg):
     logging.error(FFI_main.string(msg))
 
 
+# Find the path to a precompiled .so for this system.
+# If a precompiled spec exists, but has wrong tags (e.g. python was upgraded), it is ignored.
+def find_precompiled():
+    try:
+        precompile_spec = importlib.util.find_spec("klippy.chelper.precompiled")
+    except ModuleNotFoundError:
+        # No precompiled module exists
+        return None
+    if precompile_spec is None:
+        return None
+    chelper_filename = precompile_spec.origin
+    logging.info("Found precompiled chelper at %s" % chelper_filename)
+    return chelper_filename
+
+
 # Return the Foreign Function Interface api to the caller
 def get_ffi():
     global FFI_main, FFI_lib, pyhelper_logging_callback
     if FFI_lib is None:
-        srcdir = os.path.dirname(os.path.realpath(__file__))
-        srcfiles = get_abs_files(srcdir, SOURCE_FILES)
-        ofiles = get_abs_files(srcdir, OTHER_FILES)
-        destlib = get_abs_files(srcdir, [DEST_LIB])[0]
-        if check_build_code(srcfiles + ofiles + [__file__], destlib):
-            if check_gcc_option(SSE_FLAGS):
-                cmd = "%s %s %s" % (GCC_CMD, SSE_FLAGS, COMPILE_ARGS)
-            else:
-                cmd = "%s %s" % (GCC_CMD, COMPILE_ARGS)
-            logging.info("Building C code module %s", DEST_LIB)
-            do_build_code(cmd % (destlib, " ".join(srcfiles)))
+        precompiled = find_precompiled()
+        if not precompiled:
+            srcdir = os.path.dirname(os.path.realpath(__file__))
+            srcfiles = get_abs_files(srcdir, SOURCE_FILES)
+            ofiles = get_abs_files(srcdir, OTHER_FILES)
+            destlib = get_abs_files(srcdir, [DEST_LIB])[0]
+            if check_build_code(srcfiles + ofiles + [__file__], destlib):
+                if check_gcc_option(SSE_FLAGS):
+                    cmd = "%s %s %s" % (GCC_CMD, SSE_FLAGS, COMPILE_ARGS)
+                else:
+                    cmd = "%s %s" % (GCC_CMD, COMPILE_ARGS)
+                logging.info("Building C code module %s", DEST_LIB)
+                do_build_code(cmd % (destlib, " ".join(srcfiles)))
+            ffi_filename = destlib
+        else:
+            ffi_filename = precompiled
+
         FFI_main = cffi.FFI()
         for d in defs_all:
             FFI_main.cdef(d)
-        FFI_lib = FFI_main.dlopen(destlib)
+        FFI_lib = FFI_main.dlopen(ffi_filename)
+
         # Setup error logging
         pyhelper_logging_callback = FFI_main.callback(
             "void func(const char *)", logging_callback
