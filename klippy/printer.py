@@ -134,11 +134,14 @@ class Printer:
             return [(module, self.objects[module])] + objs
         return objs
 
-    def load_object(self, config, section, default=configfile.sentinel):
-        if section in self.objects:
-            return self.objects[section]
-        module_parts = section.split()
-        module_name = module_parts[0]
+    def find_module(self, module_name, required):
+        if '.' in module_name:
+            # the l_loader considers a module external if it contains at least one dot
+            try:
+                return importlib.import_module(module_name.rstrip('.'))
+            except:
+                raise self.config_error("Unable to load external packaged module for section %s" % (module_name,))
+
         extras_py_name = os.path.join(
             os.path.dirname(__file__), "extras", module_name + ".py"
         )
@@ -160,17 +163,17 @@ class Printer:
         found_in_plugins_dir = os.path.exists(plugins_py_dirname)
 
         if not any([found_in_extras, found_in_plugins, found_in_plugins_dir]):
-            if default is not configfile.sentinel:
-                return default
-            raise self.config_error("Unable to load module '%s'" % (section,))
+            if not required:
+                return None
+            raise self.config_error("Unable to load module '%s'" % (module_name,))
 
         if (
-            found_in_extras
-            and (found_in_plugins or found_in_plugins_dir)
-            and not get_danger_options().allow_plugin_override
+                found_in_extras
+                and (found_in_plugins or found_in_plugins_dir)
+                and not get_danger_options().allow_plugin_override
         ):
             raise self.config_error(
-                "Module '%s' found in both extras and plugins!" % (section,)
+                "Module '%s' found in both extras and plugins!" % (module_name,)
             )
 
         if found_in_plugins:
@@ -187,6 +190,17 @@ class Printer:
             mod_spec.loader.exec_module(mod)
         else:
             mod = importlib.import_module("klippy.extras." + module_name)
+
+        return mod
+
+    def load_object(self, config, section, default=configfile.sentinel):
+        if section in self.objects:
+            return self.objects[section]
+        module_parts = section.split()
+        module_name = module_parts[0]
+        mod = self.find_module(module_name, default==configfile.sentinel)
+        if not mod:
+            return default
 
         init_func = "load_config"
         if len(module_parts) > 1:
