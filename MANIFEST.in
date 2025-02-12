@@ -7,3 +7,4 @@ prune scripts/
 prune src/
 prune test/
 ignore .dockerignore .gitignore .pre-commit-config.yaml Makefile
+include klippy/.version

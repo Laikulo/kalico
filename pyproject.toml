@@ -47,6 +47,8 @@ include = [
 ]
 
 [tool.setuptools_scm]
+version_file = "klippy/.version"
+version_file_template = "{version}"
 
 [tool.ruff]
 line-length = 80
