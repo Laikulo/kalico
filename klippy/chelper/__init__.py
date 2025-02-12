@@ -327,6 +327,8 @@ def find_precompiled():
     except ModuleNotFoundError:
         # No precompiled module exists
         return None
+    if precompile_spec is None:
+        return None
     chelper_filename=precompile_spec.origin
     logging.info("Found precompiled chelper at %s" % chelper_filename )
     return chelper_filename
