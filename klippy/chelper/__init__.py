@@ -334,7 +334,6 @@ def find_precompiled():
     return chelper_filename
 
 
-
 # Return the Foreign Function Interface api to the caller
 def get_ffi():
     global FFI_main, FFI_lib, pyhelper_logging_callback
