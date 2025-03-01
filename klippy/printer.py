@@ -3,7 +3,7 @@
 # Copyright (C) 2016-2020  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-
+import functools
 import sys, os, gc, optparse, logging, time, collections, importlib, importlib.util
 
 from . import compat
@@ -134,6 +134,18 @@ class Printer:
             return [(module, self.objects[module])] + objs
         return objs
 
+    @functools.cache
+    def __find_object_pkg(self, module_name):
+        """
+        Locate the class that implements a Printer Object from a package
+        :param module_name: the name of the package (as specified in the printer.conf)
+        :returns: spec for the module, or None if not found
+        """
+        try:
+            return importlib.util.find_spec(f'klippy_object_{module_name}')
+        except KeyError:
+            return None
+
     def load_object(self, config, section, default=configfile.sentinel):
         if section in self.objects:
             return self.objects[section]
@@ -159,7 +171,9 @@ class Printer:
         found_in_plugins = os.path.exists(plugins_py_name)
         found_in_plugins_dir = os.path.exists(plugins_py_dirname)
 
-        if not any([found_in_extras, found_in_plugins, found_in_plugins_dir]):
+        package_spec = self.__find_object_pkg(module_name)
+
+        if not any([found_in_extras, found_in_plugins, found_in_plugins_dir, package_spec]):
             if default is not configfile.sentinel:
                 return default
             raise self.config_error("Unable to load module '%s'" % (section,))
@@ -187,6 +201,10 @@ class Printer:
             mod_spec.loader.exec_module(mod)
         else:
             mod = importlib.import_module("klippy.extras." + module_name)
+
+        if mod is None and package_spec is not None:
+            mod = importlib.util.module_from_spec(package_spec)
+            package_spec.loader.exec_module(mod)
 
         init_func = "load_config"
         if len(module_parts) > 1:
