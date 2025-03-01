@@ -13,7 +13,6 @@ dependencies = [
   "numpy~=2.2 ; python_version>='3.10'",
   "pyserial==3.4",
   "python-can==3.3.4",
-  "setuptools==75.8.2 ; python_version >= '3.12'", # required by python-can < 4.3
   "pytest>=8.3.4",
 ]
 dynamic = ["version"]
@@ -47,8 +46,6 @@ include = [
 ]
 
 [tool.setuptools_scm]
-version_file = "klippy/.version"
-version_file_template = "{version}"
 
 [tool.ruff]
 line-length = 80
