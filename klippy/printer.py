@@ -3,7 +3,7 @@
 # Copyright (C) 2016-2020  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-
+import functools
 import sys, os, gc, optparse, logging, time, collections, importlib, importlib.util
 
 from . import compat
@@ -139,54 +139,63 @@ class Printer:
             return self.objects[section]
         module_parts = section.split()
         module_name = module_parts[0]
-        extras_py_name = os.path.join(
-            os.path.dirname(__file__), "extras", module_name + ".py"
-        )
-        extras_py_dirname = os.path.join(
-            os.path.dirname(__file__), "extras", module_name, "__init__.py"
-        )
 
-        plugins_py_dirname = os.path.join(
-            os.path.dirname(__file__), "plugins", module_name, "__init__.py"
-        )
-        plugins_py_name = os.path.join(
-            os.path.dirname(__file__), "plugins", module_name + ".py"
-        )
-
-        found_in_extras = os.path.exists(extras_py_name) or os.path.exists(
-            extras_py_dirname
-        )
-        found_in_plugins = os.path.exists(plugins_py_name)
-        found_in_plugins_dir = os.path.exists(plugins_py_dirname)
-
-        if not any([found_in_extras, found_in_plugins, found_in_plugins_dir]):
-            if default is not configfile.sentinel:
-                return default
-            raise self.config_error("Unable to load module '%s'" % (section,))
-
-        if (
-            found_in_extras
-            and (found_in_plugins or found_in_plugins_dir)
-            and not get_danger_options().allow_plugin_override
-        ):
-            raise self.config_error(
-                "Module '%s' found in both extras and plugins!" % (section,)
-            )
-
-        if found_in_plugins:
-            mod_spec = importlib.util.spec_from_file_location(
-                "klippy.extras." + module_name, plugins_py_name
-            )
-            mod = importlib.util.module_from_spec(mod_spec)
-            mod_spec.loader.exec_module(mod)
-        elif found_in_plugins_dir:
-            mod_spec = importlib.util.spec_from_file_location(
-                "klippy.plugins." + module_name, plugins_py_dirname
-            )
+        explicit_module = config.get_explicit_package(module_name)
+        if explicit_module:
+            # We would normally use importlib.import_module here
+            # however, the other loaders don't set sys.modules, and import_module
+            mod_spec = importlib.util.find_spec(f'{explicit_module}.{module_name}')
             mod = importlib.util.module_from_spec(mod_spec)
             mod_spec.loader.exec_module(mod)
         else:
-            mod = importlib.import_module("klippy.extras." + module_name)
+            extras_py_name = os.path.join(
+                os.path.dirname(__file__), "extras", module_name + ".py"
+            )
+            extras_py_dirname = os.path.join(
+                os.path.dirname(__file__), "extras", module_name, "__init__.py"
+            )
+
+            plugins_py_dirname = os.path.join(
+                os.path.dirname(__file__), "plugins", module_name, "__init__.py"
+            )
+            plugins_py_name = os.path.join(
+                os.path.dirname(__file__), "plugins", module_name + ".py"
+            )
+
+            found_in_extras = os.path.exists(extras_py_name) or os.path.exists(
+                extras_py_dirname
+            )
+            found_in_plugins = os.path.exists(plugins_py_name)
+            found_in_plugins_dir = os.path.exists(plugins_py_dirname)
+
+            if not any([found_in_extras, found_in_plugins, found_in_plugins_dir]):
+                if default is not configfile.sentinel:
+                    return default
+                raise self.config_error("Unable to load module '%s'" % (section,))
+
+            if (
+                found_in_extras
+                and (found_in_plugins or found_in_plugins_dir)
+                and not get_danger_options().allow_plugin_override
+            ):
+                raise self.config_error(
+                    "Module '%s' found in both extras and plugins!" % (section,)
+                )
+
+            if found_in_plugins:
+                mod_spec = importlib.util.spec_from_file_location(
+                    "klippy.extras." + module_name, plugins_py_name
+                )
+                mod = importlib.util.module_from_spec(mod_spec)
+                mod_spec.loader.exec_module(mod)
+            elif found_in_plugins_dir:
+                mod_spec = importlib.util.spec_from_file_location(
+                    "klippy.plugins." + module_name, plugins_py_dirname
+                )
+                mod = importlib.util.module_from_spec(mod_spec)
+                mod_spec.loader.exec_module(mod)
+            else:
+                mod = importlib.import_module("klippy.extras." + module_name)
 
         init_func = "load_config"
         if len(module_parts) > 1:

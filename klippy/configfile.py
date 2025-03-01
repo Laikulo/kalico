@@ -4,6 +4,8 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import sys, os, glob, re, time, logging, configparser, io
+from xml.sax.expatreader import ExpatLocator
+
 from .extras.danger_options import get_danger_options
 from . import mathutil
 
@@ -312,6 +314,7 @@ class PrinterConfig:
         self.unused_sections = []
         self.unused_options = []
         self.save_config_pending = False
+        self.__section_modules = {}
         gcode = self.printer.lookup_object("gcode")
         if "SAVE_CONFIG" not in gcode.ready_gcode_handlers:
             gcode.register_command(
@@ -421,6 +424,11 @@ class PrinterConfig:
             )
         return include_filenames
 
+    EXPLICIT_MODULE_RE = re.compile('^\([a-zA-Z_0-9]+\)([a-zA-Z0-9_]+)(?: (.*))?')
+
+    def get_explicit_module(self, type_name):
+        return self.__section_modules.get(type_name, None)
+
     def _parse_config(self, data, filename, fileconfig, visited):
         path = os.path.abspath(filename)
         if path in visited:
@@ -444,6 +452,14 @@ class PrinterConfig:
                 self._resolve_include(
                     filename, include_spec, fileconfig, visited
                 )
+            elif header and header[0] == '(':
+                package_matches = self.EXPLICIT_MODULE_RE.match(header)
+                if not package_matches:
+                    error(f"Invalid explicit package declaration: {header}")
+                pkg_name, section_name, extras = package_matches
+                if section_name in self.__section_modules and pkg_name != self.__section_modules[section_name]:
+                    error(f"Multiple packages specified for type: {section_name} - {pkg_name} and {self.__section_modules[section_name]}")
+                self.__section_modules[section_name] = pkg_name
             else:
                 buffer.append(line)
         self._parse_config_buffer(buffer, filename, fileconfig)
