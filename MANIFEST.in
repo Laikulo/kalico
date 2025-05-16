@@ -1,10 +1,10 @@
 # setuptools_scm will add all files that are not ignored, so we must ignore them here
 prune .github/
-prune config/
-prune docs/
 prune lib/
 prune scripts/
 prune src/
 prune test/
-ignore .dockerignore .gitignore .pre-commit-config.yaml Makefile
+graft config
+graft docs
+exclude .dockerignore .gitignore .pre-commit-config.yaml Makefile uv.lock
 include klippy/.version
