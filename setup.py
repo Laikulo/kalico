@@ -18,7 +18,7 @@ if platform.processor() in ["x86", "x86_64", "amd64"]:
 klippy_data_files = filter(lambda p: p.is_file(), chain(Path('config').rglob('*'), Path('docs').rglob('*')))
 data_file_pairs = {}
 for path in klippy_data_files:
-    path_dir = str(path.parent)
+    path_dir = "kalico/" + str(path.parent)
     if not path_dir in data_file_pairs:
         data_file_pairs[path_dir] = []
     data_file_pairs[path_dir].append(str(path))
